@@ -14,7 +14,10 @@ class Controller
 
   public function __construct($request = null)
   {
-    $this->request = $request instanceof Request ? $request : new Request();
+    $app = App::instance();
+
+    $this->request = $request instanceof Request ? $request : ($app instanceof App ? $app->request() : new Request());
+
     $this->controller_name = $this->detect_controller_name();
     $this->view_path = $this->detect_view_path();
     $this->view = new View(array(

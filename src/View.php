@@ -114,22 +114,15 @@ class View
     $this->blocks[$name] .= (string) $content;
   }
 
-  public function fetch($name, $clear = false)
+  public function fetch($name)
   {
     $name = (string) $name;
-    $clear = (bool) $clear;
 
     if (!isset($this->blocks[$name])) {
       return '';
     }
 
-    $content = $this->blocks[$name];
-
-    if ($clear) {
-      $this->blocks[$name] = '';
-    }
-
-    return $content;
+    return $this->blocks[$name];
   }
 
   public function build_body_class()

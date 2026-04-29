@@ -59,7 +59,7 @@ class Request
       $path = '/';
     }
 
-    $base_url = (string) Config::get('app_base_url', '/');
+    $base_url = (string) Config::get('_app_base_url', '/');
     $base_url = trim($base_url);
 
     if ($base_url !== '' && $base_url !== '/') {

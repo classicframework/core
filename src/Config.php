@@ -48,15 +48,22 @@ class Config
 
   public static function extract($prefix)
   {
-    $prefix = (string) $prefix . '_';
+    $prefix = (string) $prefix;
+
+    $prefixes = array(
+      $prefix . '_',
+      '_' . $prefix . '_',
+    );
+
     $result = array();
 
     foreach (self::$data as $key => $value) {
-      if (strpos($key, $prefix) !== 0) {
-        continue;
+      foreach ($prefixes as $p) {
+        if (strpos($key, $p) === 0) {
+          $result[substr($key, strlen($p))] = $value;
+          break;
+        }
       }
-
-      $result[substr($key, strlen($prefix))] = $value;
     }
 
     return $result;

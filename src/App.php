@@ -12,7 +12,10 @@ class App
   public function __construct($request = null)
   {
     self::$instance = $this;
-    $this->request = $request instanceof Request ? $request : new Request();
+
+    if ($request instanceof Request) {
+      $this->request = $request;
+    }
   }
 
   public static function instance()
@@ -22,6 +25,10 @@ class App
 
   public function request()
   {
+    if (!$this->request instanceof Request) {
+      $this->request = new Request();
+    }
+
     return $this->request;
   }
 
@@ -58,7 +65,9 @@ class App
   {
     $this->bootstrap();
 
-    $route = Router::parse($this->request->path());
+    $request = $this->request();
+
+    $route = Router::parse($request->path());
 
     if ($route === false) {
       $this->render_error(404, 'Page not found');
@@ -81,7 +90,7 @@ class App
       return;
     }
 
-    $controller = new $controller_class($this->request);
+    $controller = new $controller_class($request);
 
     if (!method_exists($controller, $action_name)) {
       $this->render_error(404, 'Action not found');
@@ -115,20 +124,17 @@ class App
     }
 
     $config_path = APP_PATH . DIRECTORY_SEPARATOR . 'config';
+
     $files = $this->glob_files($config_path . DIRECTORY_SEPARATOR . '*.php');
 
     foreach ($files as $file) {
       require_once $file;
+    }
 
-      $name = basename($file, '.php');
+    $custom_files = $this->glob_files($config_path . DIRECTORY_SEPARATOR . 'custom' . DIRECTORY_SEPARATOR . '*.php');
 
-      if ($name !== '' && $name !== 'app') {
-        $enabled_key = $name . '_enabled';
-
-        if (!Config::has($enabled_key)) {
-          Config::set($enabled_key, true);
-        }
-      }
+    foreach ($custom_files as $file) {
+      require_once $file;
     }
   }
 
@@ -160,7 +166,7 @@ class App
 
   protected function apply_runtime_config()
   {
-    $timezone = (string) Config::get('app_timezone', '');
+    $timezone = (string) Config::get('_app_timezone', '');
 
     if ($timezone !== '') {
       date_default_timezone_set($timezone);
@@ -171,7 +177,7 @@ class App
 
   protected function apply_error_handling()
   {
-    $env = (string) Config::get('app_env', 'prod');
+    $env = (string) Config::get('_app_env', 'prod');
 
     if ($env === 'dev') {
       error_reporting(E_ALL);
@@ -211,18 +217,6 @@ class App
 
   protected function glob_files($pattern)
   {
-    /*
-    $files = glob($pattern);
-
-    if (!is_array($files)) {
-      return array();
-    }
-
-    sort($files);
-
-    return $files;
-    */
-
     $files = glob($pattern);
 
     if (!is_array($files)) {
@@ -237,11 +231,11 @@ class App
       $b_is_underscore = strpos($b_name, '_') === 0;
 
       if ($a_is_underscore && !$b_is_underscore) {
-        return 1;
+        return -1;
       }
 
       if (!$a_is_underscore && $b_is_underscore) {
-        return -1;
+        return 1;
       }
 
       return strcmp($a_name, $b_name);
@@ -256,7 +250,7 @@ class App
     $error_message = (string) $error_message;
 
     if (!headers_sent()) {
-      http_response_code($error_code);
+      $this->send_status_code($error_code);
       header('X-Robots-Tag: noindex, nofollow', true);
     }
 
@@ -278,5 +272,25 @@ class App
     }
 
     echo $error_code . ' ' . $error_message;
+  }
+
+  protected function send_status_code($status_code)
+  {
+    $status_code = (int) $status_code;
+
+    if (function_exists('http_response_code')) {
+      http_response_code($status_code);
+      return;
+    }
+
+    $texts = array(
+      404 => 'Not Found',
+      500 => 'Internal Server Error',
+    );
+
+    $text = isset($texts[$status_code]) ? $texts[$status_code] : 'Error';
+    $protocol = isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1';
+
+    header($protocol . ' ' . $status_code . ' ' . $text, true, $status_code);
   }
 }

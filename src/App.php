@@ -9,6 +9,10 @@ class App
   protected $request = null;
   protected $services = array();
 
+  protected $resolvers = array();
+  protected $controller_filters = array();
+  protected $request_handlers = array();
+
   public function __construct($request = null)
   {
     self::$instance = $this;
@@ -67,6 +71,16 @@ class App
 
     $request = $this->request();
 
+    $handler_response = $this->call_request_handlers($request);
+
+    if ($handler_response !== null) {
+      if ($handler_response !== false) {
+        echo $handler_response;
+      }
+
+      return;
+    }
+
     $route = Router::parse($request->path());
 
     if ($route === false) {
@@ -104,7 +118,10 @@ class App
     $filter_response = $controller->call_before_filter();
 
     if ($filter_response !== null) {
-      echo $filter_response;
+      if ($filter_response !== false) {
+        echo $filter_response;
+      }
+
       return;
     }
 
@@ -142,6 +159,8 @@ class App
   {
     $config = Config::all();
 
+    $packages = array();
+
     foreach ($config as $key => $value) {
       if (substr($key, -8) !== '_enabled') {
         continue;
@@ -151,7 +170,41 @@ class App
         continue;
       }
 
-      $package = substr($key, 0, -8);
+      $packages[] = substr($key, 0, -8);
+    }
+
+    $ordered_packages = array();
+
+    $priority = array(
+      'database',
+      'migration',
+      'settings',
+      'session',
+      'cookie',
+      'flash',
+      'mail',
+      'csrf',
+      'captcha',
+      'auth',
+      'console',
+      'scheduler',
+      'models',
+      'sitemap'
+    );
+
+    foreach ($priority as $package) {
+      if (in_array($package, $packages, true)) {
+        $ordered_packages[] = $package;
+      }
+    }
+
+    foreach ($packages as $package) {
+      if (!in_array($package, $ordered_packages, true)) {
+        $ordered_packages[] = $package;
+      }
+    }
+
+    foreach ($ordered_packages as $package) {
       $class = 'classicframework\\' . $package . '\\Bridge';
 
       if (!class_exists($class)) {
@@ -184,9 +237,13 @@ class App
       ini_set('display_errors', '1');
       ini_set('display_startup_errors', '1');
     } else {
-      error_reporting(0);
+      error_reporting(E_ALL);
       ini_set('display_errors', '0');
       ini_set('display_startup_errors', '0');
+    }
+
+    if (!defined('APP_PATH')) {
+      return;
     }
 
     $log_dir = APP_PATH . '/logs';
@@ -292,5 +349,69 @@ class App
     $protocol = isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1';
 
     header($protocol . ' ' . $status_code . ' ' . $text, true, $status_code);
+  }
+
+  public function add_resolver($resolver)
+  {
+    $this->resolvers[] = $resolver;
+  }
+
+  public function resolve($name, $default = null)
+  {
+    foreach ($this->resolvers as $resolver) {
+      if (is_callable($resolver)) {
+        $value = call_user_func($resolver, $name, $this);
+
+        if ($value !== null) {
+          return $value;
+        }
+      }
+    }
+
+    return $default;
+  }
+
+  public function add_controller_filter($type, $callback)
+  {
+    $type = (string) $type;
+
+    if (!isset($this->controller_filters[$type])) {
+      $this->controller_filters[$type] = array();
+    }
+
+    $this->controller_filters[$type][] = $callback;
+  }
+
+  public function controller_filters($type)
+  {
+    $type = (string) $type;
+
+    if (!isset($this->controller_filters[$type])) {
+      return array();
+    }
+
+    return $this->controller_filters[$type];
+  }
+
+  public function add_request_handler($callback)
+  {
+    $this->request_handlers[] = $callback;
+  }
+
+  protected function call_request_handlers($request)
+  {
+    foreach ($this->request_handlers as $handler) {
+      if (!is_callable($handler)) {
+        continue;
+      }
+
+      $response = call_user_func($handler, $request, $this);
+
+      if ($response !== null) {
+        return $response;
+      }
+    }
+
+    return null;
   }
 }

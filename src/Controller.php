@@ -188,12 +188,48 @@ class Controller
       return $app->get_service($name);
     }
 
-    return null;
+    return $app->resolve($name, null);
   }
 
   public function call_before_filter()
   {
-    return $this->_before_filter();
+    $response = $this->_before_filter();
+
+    if ($response !== null) {
+      return $response;
+    }
+
+    return $this->call_controller_filters('before');
+  }
+
+  public function call_controller_filters($type)
+  {
+    $app = $this->app();
+
+    if (!$app instanceof App || !method_exists($app, 'controller_filters')) {
+      return null;
+    }
+
+    $filters = $app->controller_filters($type);
+
+    foreach ($filters as $filter) {
+      if (!is_callable($filter)) {
+        continue;
+      }
+
+      $response = call_user_func($filter, $this);
+
+      if ($response !== null) {
+        return $response;
+      }
+    }
+
+    return null;
+  }
+
+  public function action_name()
+  {
+    return $this->action_name;
   }
 
   public function call_after_filter()
@@ -235,4 +271,6 @@ class Controller
   {
     Config::set($key, $value);
   }
+
+
 }

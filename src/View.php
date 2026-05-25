@@ -171,4 +171,19 @@ class View
     include $file;
     return ob_get_clean();
   }
+
+  public function __get($name)
+  {
+    $app = App::instance();
+
+    if (!$app instanceof App) {
+      return null;
+    }
+
+    if ($app->has_service($name)) {
+      return $app->get_service($name);
+    }
+
+    return null;
+  }
 }

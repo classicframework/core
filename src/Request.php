@@ -59,12 +59,20 @@ class Request
       $path = '/';
     }
 
-    $base_url = (string) Config::get('_app_base_url', '/');
+    $base_url = (string) Config::get('_app_base_url', '');
     $base_url = trim($base_url);
 
-    if ($base_url !== '' && $base_url !== '/') {
-      if (strpos($path, $base_url) === 0) {
-        $path = substr($path, strlen($base_url));
+    $base_path = parse_url($base_url, PHP_URL_PATH);
+
+    if (!is_string($base_path) || $base_path === '') {
+      $base_path = '';
+    }
+
+    if ($base_path !== '' && $base_path !== '/') {
+      if ($path === $base_path) {
+        $path = '/';
+      } elseif (strpos($path, $base_path . '/') === 0) {
+        $path = substr($path, strlen($base_path));
       }
     }
 

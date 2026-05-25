@@ -1,8 +1,8 @@
 {
   "name": "classicframework/core",
-  "description": "Classic Framework core library",
+  "description": "Classic Framework Core library",
   "type": "library",
-  "license": "MIT",
+  "license": "Unlicense",
   "homepage": "https://github.com/classicframework/core",
   "require": {
     "php": ">=5.3"

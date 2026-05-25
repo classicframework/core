@@ -70,6 +70,12 @@ class Controller
 
   protected function detect_view_path()
   {
+    $view_path = (string) Config::get('_app_view_path', '');
+
+    if ($view_path !== '') {
+      return $view_path;
+    }
+
     if (defined('APP_PATH')) {
       return APP_PATH . DIRECTORY_SEPARATOR . 'views';
     }

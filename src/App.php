@@ -60,9 +60,9 @@ class App
   public function bootstrap()
   {
     $this->load_config_files();
-    $this->load_enabled_bridges();
     $this->apply_runtime_config();
     $this->load_route_files();
+    $this->load_enabled_bridges();
   }
 
   public function run()
@@ -97,7 +97,8 @@ class App
       return;
     }
 
-    $controller_class = 'app\\controllers\\' . $controller_name . 'Controller';
+    $controller_namespace = (string) Config::get('_app_controller_namespace', 'app\\controllers');
+    $controller_class = rtrim($controller_namespace, '\\') . '\\' . $controller_name . 'Controller';
 
     if (!class_exists($controller_class)) {
       $this->render_error(404, 'Controller not found');
@@ -136,11 +137,15 @@ class App
 
   protected function load_config_files()
   {
-    if (!defined('APP_PATH')) {
-      return;
+    $config_path = (string) Config::get('_app_config_path', '');
+
+    if ($config_path === '' && defined('APP_PATH')) {
+      $config_path = APP_PATH . DIRECTORY_SEPARATOR . 'config';
     }
 
-    $config_path = APP_PATH . DIRECTORY_SEPARATOR . 'config';
+    if ($config_path === '') {
+      return;
+    }
 
     $files = $this->glob_files($config_path . DIRECTORY_SEPARATOR . '*.php');
 
@@ -175,22 +180,11 @@ class App
 
     $ordered_packages = array();
 
-    $priority = array(
-      'database',
-      'migration',
-      'settings',
-      'session',
-      'cookie',
-      'flash',
-      'mail',
-      'csrf',
-      'captcha',
-      'auth',
-      'console',
-      'scheduler',
-      'models',
-      'sitemap'
-    );
+    $priority = Config::get('_app_bridge_priority', array());
+
+    if (!is_array($priority)) {
+      $priority = array();
+    }
 
     foreach ($priority as $package) {
       if (in_array($package, $packages, true)) {
@@ -242,11 +236,15 @@ class App
       ini_set('display_startup_errors', '0');
     }
 
-    if (!defined('APP_PATH')) {
-      return;
+    $log_dir = (string) Config::get('_app_log_path', '');
+
+    if ($log_dir === '' && defined('APP_PATH')) {
+      $log_dir = APP_PATH . '/logs';
     }
 
-    $log_dir = APP_PATH . '/logs';
+    if ($log_dir === '') {
+      return;
+    }
 
     if (!is_dir($log_dir)) {
       @mkdir($log_dir, 0777, true);
@@ -260,11 +258,16 @@ class App
 
   protected function load_route_files()
   {
-    if (!defined('APP_PATH')) {
+    $route_path = (string) Config::get('_app_route_path', '');
+
+    if ($route_path === '' && defined('APP_PATH')) {
+      $route_path = APP_PATH . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'routes';
+    }
+
+    if ($route_path === '') {
       return;
     }
 
-    $route_path = APP_PATH . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'routes';
     $files = $this->glob_files($route_path . DIRECTORY_SEPARATOR . '*.php');
 
     foreach ($files as $file) {
@@ -312,8 +315,11 @@ class App
     }
 
     $error_file = '';
+    $view_path = (string) Config::get('_app_view_path', '');
 
-    if (defined('APP_PATH')) {
+    if ($view_path !== '') {
+      $error_file = $view_path . DIRECTORY_SEPARATOR . 'error.php';
+    } elseif (defined('APP_PATH')) {
       $error_file = APP_PATH . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . 'error.php';
     }
 
